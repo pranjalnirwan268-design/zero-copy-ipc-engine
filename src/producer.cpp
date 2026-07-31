@@ -1,13 +1,16 @@
+#include <chrono>
 #include <cstddef>
+#include <cstdio>
 #include <iostream>
 #include <new>
 #include <string>
+#include <thread>
 #include <windows.h>
 
 #include <ringbuffer.hpp>
 
 int main(){
-    char* SHM_NAME = "Local\\MySharedRingBuffer";
+    const char* SHM_NAME = "Local\\MySharedRingBuffer";
     size_t SHM_SIZE = sizeof(ringbuffer<1024>);
 
     std::cout << "[Producer] Attempting to create shared memory region..." << std::endl;
@@ -17,7 +20,7 @@ int main(){
         NULL,                       
         PAGE_READWRITE,             
         0,                          
-        SHM_SIZE,
+        static_cast<DWORD>(SHM_SIZE),
         SHM_NAME                   
     );
 
@@ -49,22 +52,28 @@ int main(){
     for(int i=1;i<=10;i++){
         IPCMessage msg;
         msg.id = i;
-        msg.timestamp = ;
-        msg.mssg = "";
+        msg.timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
+        snprintf(msg.mssg, sizeof(msg.mssg), "Hello from Producer! Msg #%d", i);
+        // strncpy(msg.mssg, "Hello from Producer!", sizeof(msg.mssg)-1);
+        // msg.mssg[sizeof(msg.mssg)-1] = '\0';
 
         while(!ring->push(msg)){
-
+            std::this_thread::yield();
         }
 
         std::cout << "[Producer] Pushed: " << msg.mssg << " (ID: " << msg.id << ")" << std::endl;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 
     std::cout << "[Producer] Finished sending 10 messages." << std::endl;
 
+    std::cout << "[Producer] Press ENTER to destroy shared memory and exit..." << std::endl;
+    std::cin.get();
+
     UnmapViewOfFile(raw_ptr);
     CloseHandle(hMapFile);
     std::cout << "[Producer] Shared memory closed." << std::endl;
-
 
     return 0;
 }
