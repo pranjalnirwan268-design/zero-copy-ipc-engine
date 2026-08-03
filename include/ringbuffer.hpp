@@ -2,11 +2,11 @@
 
 #include <atomic>
 #include <cstddef>
-
+#include <cstdint>
 
 struct alignas(64) IPCMessage{
     size_t id;
-    size_t timestamp;
+    uint64_t timestamp;
     char mssg[48];
 };
 

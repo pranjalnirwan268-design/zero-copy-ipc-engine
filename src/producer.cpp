@@ -3,7 +3,6 @@
 #include <cstdio>
 #include <iostream>
 #include <new>
-#include <string>
 #include <thread>
 #include <windows.h>
 
@@ -25,11 +24,11 @@ int main(){
     );
 
     if(hMapFile==NULL){
-        std::cout << "[Producer] CreateFileMappingA failed! Error: " << GetLastError() << std::endl;
+        std::cerr << "[Producer] CreateFileMappingA failed! Error: " << GetLastError() << std::endl;
         return 1;
     }
 
-    std::cout << "[Producer] Shared memory object created with handle: " << hMapFile << "\n";
+    std::cout << "[Producer] Shared memory object created with handle: " << hMapFile << std::endl;
 
     void* raw_ptr = MapViewOfFile(
         hMapFile,               
@@ -39,7 +38,7 @@ int main(){
     );
 
     if (raw_ptr == nullptr) {
-        std::cerr << "[Producer] MapViewOfFile failed! Error: " << GetLastError() << "\n";
+        std::cerr << "[Producer] MapViewOfFile failed! Error: " << GetLastError() << std::endl;
         CloseHandle(hMapFile);
         return 1;
     }
