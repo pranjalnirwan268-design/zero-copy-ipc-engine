@@ -7,6 +7,8 @@
 
 #include <ringbuffer.hpp>
 
+constexpr int TOTAL_MESSAGES = 1000000;
+
 int main(){
     const char* SHM_NAME = "Local\\MySharedRingBuffer";
     size_t SHM_SIZE = sizeof(ringbuffer<1024>);
@@ -44,25 +46,43 @@ int main(){
 
     std::cout << "[Consumer] Connected to ring buffer in shared memory." << std::endl;
 
-    for(int i=1;i<=10;i++){
+    uint64_t total_latency_ns = 0;
+    int received_count = 0;
+
+    std::chrono::high_resolution_clock::time_point start_time;
+
+    for(int i=1;i<=TOTAL_MESSAGES;i++){
         IPCMessage msg;
 
         while(!ring->pop(msg)){
             std::this_thread::yield();
         }
 
-        uint64_t now = std::chrono::steady_clock::now().time_since_epoch().count();
-        uint64_t latency = now-msg.timestamp;
+        received_count++;
 
-        std::cout << "[Consumer] Popped: " << msg.mssg << " | ID: " << msg.id << " | Latency(µs): " << latency/1000.0 << std::endl;
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        if(received_count == 1){
+            start_time = std::chrono::high_resolution_clock::now();
+        }
+        else if(received_count>1){
+            uint64_t now = std::chrono::steady_clock::now().time_since_epoch().count();
+            total_latency_ns += (now - msg.timestamp);
+        }
     }
 
-    std::cout << "[Consumer] Finished receiving 10 messages." << std::endl;
+    auto end_time = std::chrono::high_resolution_clock::now();
+    double elapsed_sec = std::chrono::duration<double>(end_time - start_time).count();
+    double avg_latency_ns = static_cast<double>(total_latency_ns) / (TOTAL_MESSAGES - 1);
+
+    std::cout << std::endl << "================ BENCHMARK RESULTS ================" << std::endl;
+    std::cout << " Received Messages : " << TOTAL_MESSAGES << std::endl;
+    std::cout << " Total Time Taken  : " << elapsed_sec << " seconds" << std::endl;
+    std::cout << " Throughput        : " << (TOTAL_MESSAGES / elapsed_sec) / 1e6 << " Million msg/sec" << std::endl;
+    std::cout << " Avg Latency       : " << avg_latency_ns << " ns (" << (avg_latency_ns / 1000.0) << " µs)" << std::endl;
+    std::cout << "===================================================" << std::endl;
 
     UnmapViewOfFile(raw_ptr);
     CloseHandle(hMapFile);
+
     std::cout << "[Consumer] Disconnecting from shared memory." << std::endl;
 
     return 0;
