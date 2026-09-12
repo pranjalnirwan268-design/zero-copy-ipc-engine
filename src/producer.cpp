@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 
+#include <cpupause.hpp>
 #include <ringbuffer.hpp>
 #include <sharedmemory.hpp>
 
@@ -43,7 +44,7 @@ int main(){
         snprintf(msg.mssg, sizeof(msg.mssg), "Hello from Producer! Msg #%d", i);
 
         while(!ring->push(msg, local_tail)){
-            std::this_thread::yield();
+            cpu_pause();
         }
     }
 

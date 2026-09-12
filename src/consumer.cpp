@@ -5,6 +5,7 @@
 #include <string>
 #include <thread>
 
+#include <cpupause.hpp>
 #include <ringbuffer.hpp>
 #include <sharedmemory.hpp>
 
@@ -38,7 +39,7 @@ int main(){
         IPCMessage msg;
 
         while(!ring->pop(msg, local_head)){
-            std::this_thread::yield();
+            cpu_pause();
         }
 
         received_count++;
