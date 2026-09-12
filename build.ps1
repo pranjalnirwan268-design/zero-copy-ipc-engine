@@ -3,9 +3,9 @@ if (-not (Test-Path -Path "bin")) {
 }
 
 Write-Host "[Build] Compiling producer.exe..." -ForegroundColor Cyan
-g++ -std=c++20 -I include src/producer.cpp -o bin/producer.exe
+g++ -O3 -std=c++20 -I include src/producer.cpp -o bin/producer.exe
 
 Write-Host "[Build] Compiling consumer.exe..." -ForegroundColor Cyan
-g++ -std=c++20 -I include src/consumer.cpp -o bin/consumer.exe
+g++ -O3 -std=c++20 -I include src/consumer.cpp -o bin/consumer.exe
 
 Write-Host "`n[Build] Success! Executables ready in ./bin/" -ForegroundColor Green

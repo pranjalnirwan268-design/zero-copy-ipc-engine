@@ -4,49 +4,28 @@
 #include <cstdio>
 #include <iostream>
 #include <new>
+#include <string>
 #include <thread>
-#include <windows.h>
 
 #include <ringbuffer.hpp>
+#include <sharedmemory.hpp>
 
 constexpr int TOTAL_MESSAGES = 1000000;
 
 int main(){
-    const char* SHM_NAME = "Local\\MySharedRingBuffer";
+    std::string SHM_NAME = "MySharedRingBuffer";
     size_t SHM_SIZE = sizeof(ringbuffer<1024>);
 
     std::cout << "[Producer] Attempting to create shared memory region..." << std::endl;
 
-    HANDLE hMapFile = CreateFileMappingA(
-        INVALID_HANDLE_VALUE,       
-        NULL,                       
-        PAGE_READWRITE,             
-        0,                          
-        static_cast<DWORD>(SHM_SIZE),
-        SHM_NAME                   
-    );
+    SharedMemoryRegion producer_shm(SHM_NAME, SHM_SIZE, true);
 
-    if(hMapFile==NULL){
-        std::cerr << "[Producer] CreateFileMappingA failed! Error: " << GetLastError() << std::endl;
+    if(!producer_shm.is_valid()) {
+        std::cerr << "[Producer] Failed to initialize shared memory region." << std::endl;
         return 1;
     }
 
-    std::cout << "[Producer] Shared memory object created with handle: " << hMapFile << std::endl;
-
-    void* raw_ptr = MapViewOfFile(
-        hMapFile,               
-        FILE_MAP_ALL_ACCESS,   
-        0, 0,                   
-        SHM_SIZE               
-    );
-
-    if (raw_ptr == nullptr) {
-        std::cerr << "[Producer] MapViewOfFile failed! Error: " << GetLastError() << std::endl;
-        CloseHandle(hMapFile);
-        return 1;
-    }
-
-    auto* ring = static_cast<ringbuffer<1024>*>(raw_ptr);
+    auto* ring = static_cast<ringbuffer<1024>*>(producer_shm.get_address());
 
     new (ring) ringbuffer<1024>();
     std::cout << "[Producer] Initialized ring buffer in shared memory." << std::endl;
@@ -77,9 +56,6 @@ int main(){
 
     std::cout << std::endl << "[Producer] Press ENTER to destroy shared memory and exit..." << std::endl;
     std::cin.get();
-
-    UnmapViewOfFile(raw_ptr);
-    CloseHandle(hMapFile);
 
     std::cout << "[Producer] Shared memory closed." << std::endl;
 
