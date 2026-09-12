@@ -25,25 +25,33 @@ class ringbuffer{
             tail = 0;
         }
 
-        bool push(const IPCMessage& msg){
+        bool push(const IPCMessage& msg, size_t& local_tail){
             size_t current_head = head.load(std::memory_order_relaxed);
-            size_t current_tail = tail.load(std::memory_order_acquire);
 
-            if(current_head-current_tail >= capacity){
-                return false;
+            if(current_head-local_tail >= capacity){
+                local_tail = tail.load(std::memory_order_acquire);
+
+                if(current_head-local_tail >= capacity){
+                    return false;
+                }
             }
+
             buffer[current_head&(capacity-1)] = msg;
             head.store(current_head+1, std::memory_order_release);
             return true;
         }
 
-        bool pop(IPCMessage& msg){
-            size_t current_head = head.load(std::memory_order_acquire);
+        bool pop(IPCMessage& msg, size_t& local_head){
             size_t current_tail = tail.load(std::memory_order_relaxed);
 
-            if(current_head==current_tail){
-                return false;
+            if(current_tail==local_head){
+                local_head = head.load(std::memory_order_acquire);
+
+                if(current_tail==local_head){
+                    return false;
+                }
             }
+
             msg = buffer[current_tail&(capacity-1)];
             tail.store(current_tail+1, std::memory_order_release);
             return true;

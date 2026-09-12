@@ -29,6 +29,7 @@ int main(){
     auto* ring = static_cast<ringbuffer<1024>*>(consumer_shm.get_address());
 
     uint64_t total_latency_ns = 0;
+    size_t local_head = 0;
     int received_count = 0;
 
     std::chrono::high_resolution_clock::time_point start_time;
@@ -36,7 +37,7 @@ int main(){
     for(int i=1;i<=TOTAL_MESSAGES;i++){
         IPCMessage msg;
 
-        while(!ring->pop(msg)){
+        while(!ring->pop(msg, local_head)){
             std::this_thread::yield();
         }
 

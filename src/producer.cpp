@@ -34,6 +34,7 @@ int main(){
     std::cin.get();
 
     auto start_time = std::chrono::high_resolution_clock::now();
+    size_t local_tail = 0;
 
     for(int i=1;i<=TOTAL_MESSAGES;i++){
         IPCMessage msg;
@@ -41,7 +42,7 @@ int main(){
         msg.timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
         snprintf(msg.mssg, sizeof(msg.mssg), "Hello from Producer! Msg #%d", i);
 
-        while(!ring->push(msg)){
+        while(!ring->push(msg, local_tail)){
             std::this_thread::yield();
         }
     }
