@@ -34,28 +34,39 @@ int main(){
     std::cout << "[Producer] Ready! Press ENTER to start streaming 1 Million messages..." << std::endl;
     std::cin.get();
 
-    auto start_time = std::chrono::high_resolution_clock::now();
     size_t local_tail = 0;
+    uint64_t push_retries = 0;
+
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     for(int i=1;i<=TOTAL_MESSAGES;i++){
         IPCMessage msg;
         msg.id = i;
-        msg.timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
         snprintf(msg.mssg, sizeof(msg.mssg), "Hello from Producer! Msg #%d", i);
 
+        msg.timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
         while(!ring->push(msg, local_tail)){
+            push_retries++;
             cpu_pause();
         }
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
     double elapsed_sec = std::chrono::duration<double>(end_time - start_time).count();
+    double throughput_mmsg = (TOTAL_MESSAGES / elapsed_sec) / 1e6;
+    double bandwidth_mb = (static_cast<double>(TOTAL_MESSAGES) * sizeof(IPCMessage)) / (1024.0 * 1024.0 * elapsed_sec);
+    double avg_retries_per_msg = static_cast<double>(push_retries) / TOTAL_MESSAGES;
 
-    std::cout << "[Producer] Finished pushing " << TOTAL_MESSAGES << " messages in " 
-              << elapsed_sec << " seconds!" << std::endl;
-    std::cout << "[Producer] Throughput: " << (TOTAL_MESSAGES / elapsed_sec) / 1e6 
-              << " Million msg/sec" << std::endl;
-
+    std::cout << "================ PRODUCER BENCHMARK RESULTS ================" << std::endl;
+    std::cout << " Messages Pushed         : " << TOTAL_MESSAGES << std::endl;
+    std::cout << " Elapsed Time            : " << elapsed_sec << " seconds" << std::endl;
+    std::cout << " Throughput              : " << throughput_mmsg << " Million msg/sec" << std::endl;
+    std::cout << " Egress Bandwidth        : " << bandwidth_mb << " MB/sec" << std::endl;
+    std::cout << "-------------------- CONTENTION / SYNC --------------------" << std::endl;
+    std::cout << " Total Retries (Full) : " << push_retries << " loops" << std::endl;
+    std::cout << " Avg Retries / Msg       : " << avg_retries_per_msg << " retries/msg" << std::endl;
+    std::cout << "============================================================" << std::endl;
+    
     std::cout << std::endl << "[Producer] Press ENTER to destroy shared memory and exit..." << std::endl;
     std::cin.get();
 
