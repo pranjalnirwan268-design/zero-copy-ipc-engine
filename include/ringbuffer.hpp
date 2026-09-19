@@ -7,7 +7,13 @@
 struct alignas(64) IPCMessage{
     size_t id;
     uint64_t timestamp;
-    char mssg[48];
+
+    uint64_t sequence;
+    double price;
+    uint32_t volume;
+    uint32_t flags;
+    char symbol[8];
+    uint8_t reserved[16];
 };
 
 template<size_t capacity>

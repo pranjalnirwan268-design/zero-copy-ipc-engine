@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 
+#include <affinity.hpp>
 #include <cpupause.hpp>
 #include <ringbuffer.hpp>
 #include <sharedmemory.hpp>
@@ -37,21 +38,26 @@ int main(){
     size_t local_tail = 0;
     uint64_t push_retries = 0;
 
-    auto start_time = std::chrono::high_resolution_clock::now();
+    pin_thread_to_core(2);
+
+    auto start_time = std::chrono::steady_clock::now();
 
     for(int i=1;i<=TOTAL_MESSAGES;i++){
         IPCMessage msg;
         msg.id = i;
-        snprintf(msg.mssg, sizeof(msg.mssg), "Hello from Producer! Msg #%d", i);
-
         msg.timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
+        msg.sequence = i;
+        msg.price = 100.50 + i;
+        msg.volume = 1000;
+        msg.flags = 0x1;
+        
         while(!ring->push(msg, local_tail)){
             push_retries++;
             cpu_pause();
         }
     }
 
-    auto end_time = std::chrono::high_resolution_clock::now();
+    auto end_time = std::chrono::steady_clock::now();
     double elapsed_sec = std::chrono::duration<double>(end_time - start_time).count();
     double throughput_mmsg = (TOTAL_MESSAGES / elapsed_sec) / 1e6;
     double bandwidth_mb = (static_cast<double>(TOTAL_MESSAGES) * sizeof(IPCMessage)) / (1024.0 * 1024.0 * elapsed_sec);

@@ -7,6 +7,7 @@
 #include <thread>
 #include <vector>
 
+#include <affinity.hpp>
 #include <cpupause.hpp>
 #include <ringbuffer.hpp>
 #include <sharedmemory.hpp>
@@ -34,10 +35,12 @@ int main(){
     size_t local_head = 0;
     uint64_t pop_retries = 0;
 
-    std::chrono::high_resolution_clock::time_point start_time;
+    std::chrono::steady_clock::time_point start_time;
 
     std::vector<uint64_t> latencies;
     latencies.reserve(TOTAL_MESSAGES);
+
+    pin_thread_to_core(3);
 
     for(int i=1;i<=TOTAL_MESSAGES;i++){
         IPCMessage msg;
@@ -50,14 +53,14 @@ int main(){
         uint64_t now = std::chrono::steady_clock::now().time_since_epoch().count();
 
         if(i == 1){
-            start_time = std::chrono::high_resolution_clock::now();
+            start_time = std::chrono::steady_clock::now();
         }
         else{
             latencies.push_back(now - msg.timestamp);
         }
     }
 
-    auto end_time = std::chrono::high_resolution_clock::now();
+    auto end_time = std::chrono::steady_clock::now();
     double elapsed_sec = std::chrono::duration<double>(end_time - start_time).count();
 
     std::sort(latencies.begin(), latencies.end());
