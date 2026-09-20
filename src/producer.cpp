@@ -1,11 +1,8 @@
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <iostream>
 #include <new>
 #include <string>
-#include <thread>
 
 #include <affinity.hpp>
 #include <cpupause.hpp>
@@ -13,6 +10,11 @@
 #include <sharedmemory.hpp>
 
 constexpr int TOTAL_MESSAGES = 1000000;
+
+void wait_for_enter() {
+    std::string dummy;
+    std::getline(std::cin, dummy);
+}
 
 int main(){
     std::string SHM_NAME = "MySharedRingBuffer";
@@ -33,7 +35,7 @@ int main(){
     std::cout << "[Producer] Initialized ring buffer in shared memory." << std::endl;
 
     std::cout << "[Producer] Ready! Press ENTER to start streaming 1 Million messages..." << std::endl;
-    std::cin.get();
+    wait_for_enter();
 
     size_t local_tail = 0;
     uint64_t push_retries = 0;
@@ -74,7 +76,7 @@ int main(){
     std::cout << "============================================================" << std::endl;
     
     std::cout << std::endl << "[Producer] Press ENTER to destroy shared memory and exit..." << std::endl;
-    std::cin.get();
+    wait_for_enter();
 
     std::cout << "[Producer] Shared memory closed." << std::endl;
 

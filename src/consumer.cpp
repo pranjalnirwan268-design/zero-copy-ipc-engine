@@ -1,10 +1,8 @@
 #include <algorithm>
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include <affinity.hpp>
@@ -38,7 +36,7 @@ int main(){
     std::chrono::steady_clock::time_point start_time;
 
     std::vector<uint64_t> latencies;
-    latencies.reserve(TOTAL_MESSAGES);
+    latencies.resize(TOTAL_MESSAGES-1);
 
     pin_thread_to_core(3);
 
@@ -56,7 +54,9 @@ int main(){
             start_time = std::chrono::steady_clock::now();
         }
         else{
-            latencies.push_back(now - msg.timestamp);
+            int64_t diff = static_cast<int64_t>(now - msg.timestamp);
+            uint64_t lat = (diff > 0) ? static_cast<uint64_t>(diff) : 0;
+            latencies[i-2] = lat;
         }
     }
 
@@ -78,8 +78,9 @@ int main(){
     }
     double avg_latency_ns = static_cast<double>(total_latency_ns) / n;
 
-    double throughput_mmsg = (TOTAL_MESSAGES / elapsed_sec) / 1e6;
-    double bandwidth_mb = (static_cast<double>(TOTAL_MESSAGES) * sizeof(IPCMessage)) / (1024.0 * 1024.0 * elapsed_sec);
+    double processed_msgs = static_cast<double>(TOTAL_MESSAGES - 1);
+    double throughput_mmsg = (processed_msgs / elapsed_sec) / 1e6;
+    double bandwidth_mb = (processed_msgs * sizeof(IPCMessage)) / (1024.0 * 1024.0 * elapsed_sec);
     double avg_retries_per_msg = static_cast<double>(pop_retries) / TOTAL_MESSAGES;
 
     std::cout <<  "================ CONSUMER BENCHMARK RESULTS ================" << std::endl;

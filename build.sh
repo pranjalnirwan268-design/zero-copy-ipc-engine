@@ -3,10 +3,13 @@ set -e
 
 mkdir -p bin
 
+CXX_FLAGS="-O3 -std=c++20 -march=native -flto -Wall -Wextra -I include"
+LIBS="-lrt -lpthread"
+
 echo "[Build] Compiling producer for Linux..."
-g++ -O3 -std=c++20 -I include src/producer.cpp -o bin/producer -lrt -lpthread
+g++ $CXX_FLAGS src/producer.cpp -o bin/producer $LIBS
 
 echo "[Build] Compiling consumer for Linux..."
-g++ -O3 -std=c++20 -I include src/consumer.cpp -o bin/consumer -lrt -lpthread
+g++ $CXX_FLAGS src/consumer.cpp -o bin/consumer $LIBS
 
 echo -e "\n[Build] Success! Linux binaries ready in ./bin/"

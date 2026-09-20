@@ -1,49 +1,57 @@
 #pragma once
 
 #include <cerrno>
-#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <string>
 
 #if defined(_WIN32) || defined(_WIN64)
-    #define PLATFORM_WINDOWS
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
     #include <windows.h>
-#else
-    #define PLATFORM_LINUX
+#elif defined(__linux__)
     #include <fcntl.h>
     #include <sys/mman.h>
     #include <sys/stat.h>
     #include <unistd.h>
+#else
+    #error "sharedmemory.hpp: Unsupported platform. Only Windows and Linux are supported."
 #endif
-
 class SharedMemoryRegion {
     private:
         std::string name;
-        size_t size;
+        uint64_t size;
         void* mapped_address = nullptr;
         bool is_producer = false;
 
-    #ifdef PLATFORM_WINDOWS
+    #if defined(_WIN32) || defined(_WIN64)
         HANDLE hMapFile = NULL;
     #else
         int shm_fd = -1;
     #endif
 
     public:
-        SharedMemoryRegion(const std::string &shm_name, size_t shm_size, bool produce)
+        SharedMemoryRegion(const std::string &shm_name, uint64_t shm_size, bool produce)
             : name(shm_name), size(shm_size), is_producer(produce)
         {
-    #ifdef PLATFORM_WINDOWS
+    #if defined(_WIN32) || defined(_WIN64)
             std::string win_name = "Local\\" + name;
 
             if(is_producer){
+                DWORD size_high = static_cast<DWORD>((size >> 32) & 0xFFFFFFFF);
+                DWORD size_low  = static_cast<DWORD>(size & 0xFFFFFFFF);
+
                 hMapFile = CreateFileMappingA(
                     INVALID_HANDLE_VALUE,       
                     NULL,                       
                     PAGE_READWRITE,             
-                    0,                          
-                    static_cast<DWORD>(size),
+                    size_high,                          
+                    size_low,
                     win_name.c_str()
                 );
             }
@@ -69,7 +77,7 @@ class SharedMemoryRegion {
                 hMapFile,               
                 FILE_MAP_ALL_ACCESS,   
                 0, 0,                   
-                size               
+                static_cast<SIZE_T>(size)               
             );
 
             if(mapped_address == nullptr){
@@ -83,17 +91,18 @@ class SharedMemoryRegion {
                 hMapFile = NULL;
             }
     
-    #else
+    #elif defined(__linux__)
             std::string posix_name = "/" + name;
 
             if(is_producer){
-                shm_fd = shm_open(posix_name.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0666);
+                shm_fd = shm_open(posix_name.c_str(), O_CREAT | O_RDWR, 0666);
 
                 if(shm_fd != -1){
                     if(ftruncate(shm_fd, size) == -1){
                         std::cerr << "[Linux][Producer] ftruncate failed! Error: " << strerror(errno) << std::endl;
                         close(shm_fd);
                         shm_fd = -1;
+                        shm_unlink(posix_name.c_str());
                         return;
                     }
                 }
@@ -113,6 +122,9 @@ class SharedMemoryRegion {
 
             mapped_address = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
+            close(shm_fd);
+            shm_fd = -1;
+
             if(mapped_address == MAP_FAILED){
                 mapped_address = nullptr;
                 if(is_producer){
@@ -121,26 +133,27 @@ class SharedMemoryRegion {
                 else{
                     std::cerr << "[Linux][Consumer] mmap failed! Error: " << strerror(errno) << std::endl;
                 }
-                close(shm_fd);
-                shm_fd = -1;
             }
     #endif
         }
 
         ~SharedMemoryRegion(){
+        #if defined(_WIN32) || defined(_WIN64)
             if(mapped_address){
-    #ifdef PLATFORM_WINDOWS
                 UnmapViewOfFile(mapped_address);
+            }
+            if(hMapFile){
                 CloseHandle(hMapFile);
-    #else
+            }
+        #elif defined(__linux__)
+            if(mapped_address){
                 munmap(mapped_address, size);
-                close(shm_fd);
-                if(is_producer){
-                    std::string posix_name = "/" + name;
-                    shm_unlink(posix_name.c_str());
-                }
-    #endif
-            }   
+            }
+            if(is_producer){
+                std::string posix_name = "/" + name;
+                shm_unlink(posix_name.c_str());
+            }
+        #endif
         }
 
         void* get_address() const noexcept{

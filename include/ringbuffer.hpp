@@ -1,11 +1,10 @@
 #pragma once
 
 #include <atomic>
-#include <cstddef>
 #include <cstdint>
 
 struct alignas(64) IPCMessage{
-    size_t id;
+    uint64_t id;
     uint64_t timestamp;
 
     uint64_t sequence;
@@ -16,23 +15,23 @@ struct alignas(64) IPCMessage{
     uint8_t reserved[16];
 };
 
-template<size_t capacity>
+template<uint64_t capacity>
 class ringbuffer{
-    static_assert((capacity & (capacity-1))==0, "capacity must be a power of 2!");
+    static_assert(capacity > 0 && (capacity & (capacity-1))==0, "Capacity must be a power of 2!");
 
     private:
-        alignas(64) std::atomic<size_t> head;
-        alignas(64) std::atomic<size_t> tail;
+        alignas(64) std::atomic<uint64_t> head{0};
+        alignas(64) std::atomic<uint64_t> tail{0};
         IPCMessage buffer[capacity];
     
     public:
-        ringbuffer(){
-            head = 0;
-            tail = 0;
-        }
+        ringbuffer() noexcept = default;
 
-        bool push(const IPCMessage& msg, size_t& local_tail){
-            size_t current_head = head.load(std::memory_order_relaxed);
+        ringbuffer(const ringbuffer&) = delete;
+        ringbuffer& operator=(const ringbuffer&) = delete;
+
+        bool push(const IPCMessage& msg, uint64_t& local_tail) noexcept{
+            uint64_t current_head = head.load(std::memory_order_relaxed);
 
             if(current_head-local_tail >= capacity){
                 local_tail = tail.load(std::memory_order_acquire);
@@ -47,8 +46,8 @@ class ringbuffer{
             return true;
         }
 
-        bool pop(IPCMessage& msg, size_t& local_head){
-            size_t current_tail = tail.load(std::memory_order_relaxed);
+        bool pop(IPCMessage& msg, uint64_t& local_head) noexcept{
+            uint64_t current_tail = tail.load(std::memory_order_relaxed);
 
             if(current_tail==local_head){
                 local_head = head.load(std::memory_order_acquire);
